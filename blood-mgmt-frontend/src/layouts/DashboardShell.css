@@ -1,0 +1,188 @@
+/* ═══════════════════════════════════════════════
+   Dashboard Shell — Polished Sidebar Design
+   ═══════════════════════════════════════════════ */
+
+.shell {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 100vh;
+  --accent: var(--crimson);
+  --accent-tint: var(--crimson-tint);
+}
+
+.shell[data-role="hospital"] { --accent: var(--navy); --accent-tint: var(--navy-tint); }
+.shell[data-role="admin"] { --accent: var(--crimson-dark); --accent-tint: var(--crimson-tint); }
+
+/* ── Sidebar ── */
+.shell__sidebar {
+  background: #1c1917;
+  padding: 1.2rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* ── Brand ── */
+.shell__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem 1.2rem;
+}
+
+.shell__brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.shell__brand-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #f5f3f0;
+  line-height: 1.1;
+}
+
+.shell__brand-role {
+  font-size: 0.72rem;
+  color: #78716c;
+  margin-top: 0.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+/* ── Navigation ── */
+.shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  padding: 0.4rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.shell__nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: #a8a29e;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.shell__nav-icon {
+  font-size: 0.95rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.shell__nav-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f5f3f0;
+}
+
+.shell__nav-link.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f3f0;
+  font-weight: 600;
+}
+
+.shell__nav-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+
+/* ── User Section ── */
+.shell__user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0.7rem;
+  margin-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.shell__user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.shell__user-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #f5f3f0;
+  line-height: 1.2;
+}
+
+.shell__user-sub {
+  font-size: 0.72rem;
+  color: #78716c;
+  margin-top: 0.1rem;
+}
+
+/* ── Exit ── */
+.shell__exit {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  color: #78716c;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.shell__exit:hover { color: #f5f3f0; }
+
+/* ── Main Content ── */
+.shell__main {
+  padding: 2rem 2.4rem 3rem;
+  max-width: 1180px;
+  background: var(--paper);
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .shell__sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.8rem;
+  }
+  .shell__nav { flex-direction: row; flex-wrap: wrap; gap: 0.3rem; }
+  .shell__user { display: none; }
+  .shell__main { padding: 1.4rem; }
+}
