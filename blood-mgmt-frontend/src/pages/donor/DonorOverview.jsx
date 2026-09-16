@@ -5,8 +5,15 @@ export default function DonorOverview() {
   const isEligible = new Date(currentDonor.eligibleFrom) <= new Date();
   
   const userName = localStorage.getItem("userName") || currentDonor.name;
-  const userSub = localStorage.getItem("userSub") || `${currentDonor.bloodGroup} · ${currentDonor.city}`;
-  const [bg, city] = userSub.split(" · ");
+  const userSub = localStorage.getItem("userSub") || "";
+  
+  let bg = currentDonor.bloodGroup;
+  let city = currentDonor.city;
+  if (userSub.includes(" · ")) {
+    [bg, city] = userSub.split(" · ");
+  } else if (userSub && userSub !== "Blood Bank") {
+    city = userSub;
+  }
 
   return (
     <div>
