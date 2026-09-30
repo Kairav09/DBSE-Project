@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { Cross, LogOut } from "lucide-react";
+import Chatbot from "../components/Chatbot";
 import "./DashboardShell.css";
 
 const ROLE_LABELS = {
@@ -71,6 +72,8 @@ export default function DashboardShell({ role, roleLabel, navItems, children }) 
       </header>
 
       <main className="shell__main">{children}</main>
+
+      <Chatbot role={role} />
     </div>
   );
 }
