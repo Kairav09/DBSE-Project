@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { hospitalRequests, donorMatchesForRequest, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 
 const STAGES = ["Pending", "Matching", "Matched", "Fulfilled"];
 
 export default function RequestDetail() {
   const { reqId } = useParams();
-  const request = hospitalRequests.find((r) => r.id === reqId);
+  const { data: request, error, reload } = useApi(() => api.getRequest(reqId), [reqId]);
+  const { data: donorMatches } = useApi(() => api.getRequestMatches(reqId), [reqId]);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState("");
 
-  if (!request) {
+  if (error) {
     return (
       <div>
         <PageHeader title="Request not found" />
@@ -22,7 +27,23 @@ export default function RequestDetail() {
     );
   }
 
+  if (!request) return <p className="empty-state">Loading request…</p>;
+
+  const donorMatchesForRequest = donorMatches || [];
   const currentIdx = STAGES.indexOf(request.status);
+
+  async function confirmReceived() {
+    setConfirmError("");
+    setConfirming(true);
+    try {
+      await api.setRequestStatus(reqId, "Fulfilled");
+      reload();
+    } catch (err) {
+      setConfirmError(err.message);
+    } finally {
+      setConfirming(false);
+    }
+  }
 
   return (
     <div>
@@ -132,11 +153,18 @@ export default function RequestDetail() {
       {request.status === "Matched" && (
         <Card>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <button className="btn">Confirm blood received</button>
+            <button className="btn" onClick={confirmReceived} disabled={confirming}>
+              {confirming ? "Confirming…" : "Confirm blood received"}
+            </button>
             <span style={{ fontSize: "0.86rem", color: "var(--ink-soft)" }}>
               Mark as fulfilled once the blood units have been delivered and verified.
             </span>
           </div>
+          {confirmError && (
+            <p style={{ color: "var(--crimson-deep)", fontSize: "0.86rem", marginTop: "0.6rem" }}>
+              {confirmError}
+            </p>
+          )}
         </Card>
       )}
     </div>

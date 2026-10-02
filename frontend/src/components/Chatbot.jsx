@@ -2,7 +2,77 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import { getBotReply, getQuickReplies, getGreeting } from "../data/chatbotBrain";
+import { api } from "../lib/api";
 import "./Chatbot.css";
+
+// Build the brain's `db` from live API data, per role.
+// Field shapes are normalized to what the reply builders expect.
+async function loadBrainData(role) {
+  try {
+    if (role === "donor") {
+      const [me, history, nearby, camps] = await Promise.all([
+        api.getDonorMe(),
+        api.getDonorHistory(),
+        api.getNearbyRequests(),
+        api.getCamps(),
+      ]);
+      return {
+        currentDonor: {
+          name: me.name,
+          id: me.id,
+          bloodGroup: me.bloodGroup,
+          city: me.city,
+          lastDonation: me.lastDonation,
+          eligibleFrom: me.eligibleFrom,
+          totalDonations: me.totalDonations,
+        },
+        donationHistory: history,
+        allNearbyRequests: nearby,
+        donationCamps: camps,
+      };
+    }
+    if (role === "hospital") {
+      const [mine, inv, alerts] = await Promise.all([
+        api.getMyRequests(),
+        api.getInventory(),
+        api.getAlerts(),
+      ]);
+      const firstOpen = mine.find((r) => r.status !== "Fulfilled");
+      const matches = firstOpen ? await api.getRequestMatches(firstOpen.id).catch(() => []) : [];
+      return {
+        myHospitalRequests: mine,
+        hospitalRequests: mine,
+        inventory: inv,
+        emergencyAlerts: alerts,
+        donorMatchesForRequest: matches,
+      };
+    }
+    const [stats, alerts, requests, inv, forecast, reports, camps, crossmatch] = await Promise.all([
+      api.getAdminStats(),
+      api.getAlerts(),
+      api.getRequests(),
+      api.getInventory(),
+      api.getForecast(),
+      api.getReports(),
+      api.getCamps(),
+      api.getCrossmatch(),
+    ]);
+    return {
+      adminStats: stats,
+      emergencyAlerts: alerts,
+      hospitalRequests: requests,
+      inventory: inv,
+      shortageRisk: forecast.shortageRisk,
+      restockRecommendations: forecast.restockRecommendations,
+      demandForecast: forecast.demandForecast,
+      reportStats: reports,
+      donationCamps: camps,
+      crossMatchRecords: crossmatch,
+    };
+  } catch {
+    return {};
+  }
+}
 
 // Minimal rich-text renderer: **bold**, "- " bullets, blank-line spacing.
 function renderRich(text) {
@@ -58,6 +128,18 @@ export default function Chatbot({ role = "donor" }) {
   const greetedRef = useRef(false);
   const timerRef = useRef(null);
   const goToTimerRef = useRef(null);
+  const dbRef = useRef(null);
+
+  // Fetch the role's datasets once so Setu answers from live data.
+  useEffect(() => {
+    let alive = true;
+    loadBrainData(role).then((db) => {
+      if (alive) dbRef.current = db;
+    });
+    return () => {
+      alive = false;
+    };
+  }, [role]);
 
   const pushBot = (reply) =>
     setMessages((m) => [...m, { from: "bot", text: reply.text, actions: reply.actions || [] }]);
@@ -67,7 +149,7 @@ export default function Chatbot({ role = "donor" }) {
     setOpen(next);
     if (next && !greetedRef.current) {
       greetedRef.current = true;
-      pushBot(getGreeting(role));
+      pushBot(getGreeting(role, dbRef.current));
     }
   };
 
@@ -77,7 +159,7 @@ export default function Chatbot({ role = "donor" }) {
     setMessages((m) => [...m, { from: "user", text }]);
     setInput("");
     setTyping(true);
-    const reply = getBotReply(text, role);
+    const reply = getBotReply(text, role, dbRef.current);
     // Deterministic-feeling variation in the typing pause (kept pure for lint).
     const delay = 650 + ((text.length * 37) % 400);
     timerRef.current = setTimeout(() => {

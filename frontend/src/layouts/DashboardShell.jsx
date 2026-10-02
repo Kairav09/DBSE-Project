@@ -1,6 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { Cross, LogOut } from "lucide-react";
 import Chatbot from "../components/Chatbot";
+import { ToastHost } from "../components/UI";
+import { logout } from "../lib/auth";
 import "./DashboardShell.css";
 
 const ROLE_LABELS = {
@@ -63,9 +65,9 @@ export default function DashboardShell({ role, roleLabel, navItems, children }) 
               </div>
             </div>
 
-            <button className="topbar__exit" onClick={() => navigate("/home")} title="Switch role">
+            <button className="topbar__exit" onClick={() => logout()} title="Sign out">
               <LogOut size={15} strokeWidth={2.2} />
-              <span>Switch role</span>
+              <span>Sign out</span>
             </button>
           </div>
         </div>
@@ -74,6 +76,7 @@ export default function DashboardShell({ role, roleLabel, navItems, children }) 
       <main className="shell__main">{children}</main>
 
       <Chatbot role={role} />
+      <ToastHost />
     </div>
   );
 }

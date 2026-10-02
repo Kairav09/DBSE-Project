@@ -9,9 +9,8 @@ import {
   TriangleAlert, BellRing,
 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge } from "../../components/UI";
-import {
-  adminStats, emergencyAlerts, hospitalRequests, inventory, reportStats, timeAgo,
-} from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 import "./Admin.css";
 
 const SAFETY_THRESHOLD = 10;
@@ -29,8 +28,32 @@ const chartTip = {
 };
 
 export default function AdminOverview() {
-  const [acked, setAcked] = useState([]);
-  const activeAlerts = emergencyAlerts.filter((a) => !acked.includes(a.id));
+  const { data: adminStats, error } = useApi(api.getAdminStats);
+  const { data: alerts, reload: reloadAlerts } = useApi(api.getAlerts);
+  const { data: hospitalRequests } = useApi(api.getRequests);
+  const { data: inventory } = useApi(api.getInventory);
+  const { data: reportStats } = useApi(api.getReports);
+  const [acking, setAcking] = useState(null);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load the overview.</p>;
+  if (!adminStats || !alerts || !hospitalRequests || !inventory || !reportStats) {
+    return <p className="empty-state">Loading overview…</p>;
+  }
+
+  const emergencyAlerts = alerts;
+  const activeAlerts = emergencyAlerts;
+
+  async function acknowledge(id) {
+    setAcking(id);
+    try {
+      await api.resolveAlert(id);
+      reloadAlerts();
+    } finally {
+      setAcking(null);
+    }
+  }
+
+  const monthly = reportStats.monthlyCollections;
 
   return (
     <div>
@@ -81,7 +104,7 @@ export default function AdminOverview() {
           action={<Link to="/admin/reports" className="card__link">Full reports<ArrowRight size={14} /></Link>}
         >
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={reportStats.monthlyCollections} margin={{ top: 10, right: 20, left: -14, bottom: 0 }}>
+            <LineChart data={monthly} margin={{ top: 10, right: 20, left: -14, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--ink-soft)" }} />
               <YAxis tick={{ fontSize: 12, fill: "var(--ink-soft)" }} />
@@ -92,8 +115,8 @@ export default function AdminOverview() {
             </LineChart>
           </ResponsiveContainer>
           <p className="admin-chart-note">
-            {reportStats.monthlyCollections.reduce((s, m) => s + m.collected, 0).toLocaleString()} units collected ·{" "}
-            {reportStats.monthlyCollections.reduce((s, m) => s + m.distributed, 0).toLocaleString()} distributed over the last 6 months
+            {monthly.reduce((s, m) => s + m.collected, 0).toLocaleString()} units collected ·{" "}
+            {monthly.reduce((s, m) => s + m.distributed, 0).toLocaleString()} distributed over the last 6 months
           </p>
         </Card>
       </div>
@@ -120,8 +143,8 @@ export default function AdminOverview() {
                     </div>
                     <p className="alert-row__detail">{a.detail}</p>
                   </div>
-                  <button className="btn btn--ghost" onClick={() => setAcked([...acked, a.id])}>
-                    <CheckCheck size={15} strokeWidth={2.4} /> Acknowledge
+                  <button className="btn btn--ghost" onClick={() => acknowledge(a.id)} disabled={acking === a.id}>
+                    <CheckCheck size={15} strokeWidth={2.4} /> {acking === a.id ? "Saving…" : "Acknowledge"}
                   </button>
                 </div>
               ))}

@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Droplet, MapPin, Clock, Check } from "lucide-react";
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { allNearbyRequests, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 
 export default function DonorNearbyRequests() {
   const [filter, setFilter] = useState("all");
   const [responded, setResponded] = useState([]);
+  const { data: allNearbyRequests, error } = useApi(api.getNearbyRequests);
+  const { data: donor } = useApi(api.getDonorMe);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load nearby requests.</p>;
+  if (!allNearbyRequests) return <p className="empty-state">Loading nearby requests…</p>;
 
   const filtered = filter === "all"
     ? allNearbyRequests
@@ -17,7 +23,7 @@ export default function DonorNearbyRequests() {
     <div>
       <PageHeader
         title="Nearby blood requests"
-        subtitle="All active requests matching your blood group (O+), sorted by distance."
+        subtitle={`All active requests matching your blood group${donor ? ` (${donor.bloodGroup})` : ""}, sorted by distance.`}
         action={
           <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 140 }}>
             <option value="all">All urgencies</option>

@@ -3,23 +3,46 @@
 // precise patterns (REQ ids, blood groups, navigation commands).
 // Reply shape: { text, actions: [{ label, to }], goTo?: "/path", topic?: "..." }
 
-import {
-  currentDonor,
-  donationHistory,
-  allNearbyRequests,
-  donationCamps,
-  inventory,
-  hospitalRequests,
-  myHospitalRequests,
-  emergencyAlerts,
-  donorMatchesForRequest,
-  shortageRisk,
-  restockRecommendations,
-  demandForecast,
-  reportStats,
-  adminStats,
-  crossMatchRecords,
-} from "./mockData.js";
+// ── Live data binding ────────────────────────────────────────────────────────
+// The brain is a pure function of app data. Chatbot.jsx fetches the datasets for
+// the signed-in role once, normalizes them to the shapes below, and hands them
+// in via the `db` argument. Everything below reads these bindings — nothing here
+// touches demo data. (getBotReply is synchronous, so this module-level binding
+// is safe: it is set fresh on every call before any builder runs.)
+let currentDonor = {};
+let donationHistory = [];
+let allNearbyRequests = [];
+let donationCamps = [];
+let inventory = [];
+let hospitalRequests = [];
+let myHospitalRequests = [];
+let emergencyAlerts = [];
+let donorMatchesForRequest = [];
+let shortageRisk = [];
+let restockRecommendations = [];
+let demandForecast = {};
+let reportStats = {};
+let adminStats = {};
+let crossMatchRecords = [];
+
+function bindData(db) {
+  db = db || {};
+  currentDonor = db.currentDonor || {};
+  donationHistory = db.donationHistory || [];
+  allNearbyRequests = db.allNearbyRequests || [];
+  donationCamps = db.donationCamps || [];
+  inventory = db.inventory || [];
+  hospitalRequests = db.hospitalRequests || [];
+  myHospitalRequests = db.myHospitalRequests || [];
+  emergencyAlerts = db.emergencyAlerts || [];
+  donorMatchesForRequest = db.donorMatchesForRequest || [];
+  shortageRisk = db.shortageRisk || [];
+  restockRecommendations = db.restockRecommendations || [];
+  demandForecast = db.demandForecast || {};
+  reportStats = db.reportStats || {};
+  adminStats = db.adminStats || {};
+  crossMatchRecords = db.crossMatchRecords || [];
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -107,9 +130,11 @@ const findBloodGroup = (text) => {
 // Greetings + quick replies
 // ---------------------------------------------------------------------------
 
-export function getGreeting(role) {
+export function getGreeting(role, db) {
+  if (db) bindData(db);
+  const firstName = (currentDonor.name || "there").split(" ")[0];
   const base = {
-    donor: `Hey ${currentDonor.name.split(" ")[0]}! I'm **Setu**, your RaktaSetu assistant. 🩸\n\nI can check your donation eligibility, show your history, find urgent requests near you, and list upcoming camps. What do you need?`,
+    donor: `Hey ${firstName}! I'm **Setu**, your RaktaSetu assistant. 🩸\n\nI can check your donation eligibility, show your history, find urgent requests near you, and list upcoming camps. What do you need?`,
     hospital: `Hello! I'm **Setu**, your RaktaSetu assistant.\n\nI can help you raise blood requests, check bank inventory, track your request status, and find eligible donors. What do you need?`,
     admin: `Hello! I'm **Setu**, your RaktaSetu assistant.\n\nI can pull stock levels, shortage alerts, pending requests, demand forecasts, and reports. What do you need?`,
   };
@@ -328,15 +353,16 @@ function adminAlerts() {
 }
 
 function adminForecast() {
-  const weekend = ["O+", "O-", "B+"].map((g) => {
+  const groups = ["O+", "O-", "B+"].filter((g) => Array.isArray(demandForecast[g]));
+  const upcoming = groups.map((g) => {
     const days = demandForecast[g];
-    const sat = days.find((d) => d.day === "Sat").predicted;
-    const sun = days.find((d) => d.day === "Sun").predicted;
-    return `- **${g}**: ~${sat} units Sat, ~${sun} Sun`;
+    const future = days.filter((d) => d.actual == null).slice(-2);
+    const pred = future.map((d) => `~${d.predicted} ${d.day}`).join(", ");
+    return `- **${g}**: ${pred || "no forecast"}`;
   });
   return {
     topic: "the demand forecast",
-    text: `Weekend demand prediction:\n${weekend.join("\n")}\n\nO+ and O- are the pressure points — check the restock plan.`,
+    text: `Upcoming demand prediction:\n${upcoming.join("\n") || "No forecast data yet."}\n\nCheck the restock plan for pressure points.`,
     actions: [
       { label: "Open forecast", to: "/admin/forecast" },
       { label: "Restock plan", to: "/admin/inventory" },
@@ -351,17 +377,17 @@ function adminExpiry() {
     .join("\n");
   return {
     topic: "expiry",
-    text: `Near-expiry units:\n${lines}\n\nHeads up: 5 units of B+ expire within 72 hours — prioritize dispatch.`,
+    text: `Near-expiry units:\n${lines || "None right now."}\n\nHeads up: ${expiring.length ? `${expiring[0].nearExpiryUnits} units of ${expiring[0].bloodGroup} expire within 72 hours — prioritize dispatch.` : "nothing is expiring in the next 72 hours."}`,
     actions: [{ label: "Open inventory", to: "/admin/inventory" }],
   };
 }
 
 function adminReports() {
-  const months = reportStats.monthlyCollections;
-  const sep = months[months.length - 1];
+  const months = reportStats.monthlyCollections || [];
+  const sep = months[months.length - 1] || {};
   return {
     topic: "reports",
-    text: `September so far: **${sep.collected}** collected, **${sep.distributed}** distributed.\n- Avg fulfillment: **${reportStats.avgFulfillmentHours} hrs** · expiry waste: **${reportStats.expiryWastePercent}%**\n- Top requester: ${reportStats.topRequestingHospitals[0].name} (${reportStats.topRequestingHospitals[0].requests} requests)`,
+    text: `${sep.month || "This month"} so far: **${sep.collected}** collected, **${sep.distributed}** distributed.\n- Avg fulfillment: **${reportStats.avgFulfillmentHours} hrs** · expiry waste: **${reportStats.expiryWastePercent}%**\n- Top requester: ${reportStats.topRequestingHospitals[0].name} (${reportStats.topRequestingHospitals[0].requests} requests)`,
     actions: [{ label: "Open reports", to: "/admin/reports" }],
   };
 }
@@ -380,9 +406,13 @@ function adminCamps() {
 
 function adminCrossmatch() {
   const ok = crossMatchRecords.filter((r) => r.crossMatchResult === "Compatible").length;
+  const bad = crossMatchRecords.find((r) => r.crossMatchResult !== "Compatible");
+  const badLine = bad
+    ? `\nOne incompatible result (${bad.id}) flagged ${bad.antibodyScreen} — that unit was held back.`
+    : "";
   return {
     topic: "cross-match",
-    text: `**${ok} of ${crossMatchRecords.length}** recent cross-matches came back compatible.\nOne incompatible result (CM-2038) flagged Anti-Kell antibodies — that unit was held back.`,
+    text: `**${ok} of ${crossMatchRecords.length}** recent cross-matches came back compatible.${badLine}`,
     actions: [{ label: "Cross-match lab", to: "/admin/crossmatch" }],
   };
 }
@@ -509,7 +539,8 @@ const FALLBACK_TOPICS = {
 // Dispatcher
 // ---------------------------------------------------------------------------
 
-export function getBotReply(rawText, role) {
+export function getBotReply(rawText, role, db) {
+  bindData(db);
   const raw = rawText.toLowerCase().trim();
   if (!raw) return { text: "", actions: [] };
 

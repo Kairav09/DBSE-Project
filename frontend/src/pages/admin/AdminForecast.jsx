@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { demandForecast, shortageRisk, restockRecommendations, inventory } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 
 export default function AdminForecast() {
+  const { data, error } = useApi(api.getForecast);
+  const { data: inventory } = useApi(api.getInventory);
+  const [group, setGroup] = useState(null);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load the forecast.</p>;
+  if (!data || !inventory) return <p className="empty-state">Loading forecast…</p>;
+
+  const { demandForecast, shortageRisk, restockRecommendations } = data;
   const groups = Object.keys(demandForecast);
-  const [group, setGroup] = useState(groups[0]);
+  const activeGroup = group && demandForecast[group] ? group : groups[0];
 
   // Calculate confidence band data (predicted ± 15%)
-  const chartData = demandForecast[group].map((d) => ({
+  const chartData = demandForecast[activeGroup].map((d) => ({
     ...d,
     confidenceLow: Math.round(d.predicted * 0.85),
     confidenceHigh: Math.round(d.predicted * 1.15),
@@ -20,7 +28,7 @@ export default function AdminForecast() {
         title="AI demand prediction"
         subtitle="Forecasted daily unit demand vs. actuals, shortage risk assessment, and restock recommendations."
         action={
-          <select value={group} onChange={(e) => setGroup(e.target.value)} style={{ width: 120 }}>
+          <select value={activeGroup} onChange={(e) => setGroup(e.target.value)} style={{ width: 120 }}>
             {groups.map((g) => <option key={g}>{g}</option>)}
           </select>
         }
@@ -38,7 +46,7 @@ export default function AdminForecast() {
                 style={{
                   padding: "0.8rem",
                   borderRadius: 8,
-                  border: group === sr.group ? "2px solid var(--crimson)" : "1px solid var(--line)",
+                  border: activeGroup === sr.group ? "2px solid var(--crimson)" : "1px solid var(--line)",
                   background: sr.risk === "Critical" ? "var(--crimson-tint)" : sr.risk === "Warning" ? "var(--amber-tint)" : "var(--green-tint)",
                   cursor: "pointer",
                   transition: "border-color 0.15s ease",
@@ -58,7 +66,7 @@ export default function AdminForecast() {
       </Card>
 
       {/* Demand forecast chart with confidence band */}
-      <Card title={`${group} — 7-day demand forecast`}>
+      <Card title={`${activeGroup} — 7-day demand forecast`}>
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />

@@ -5,7 +5,7 @@ import {
   Zap, Users, Building2, Activity,
   Database, HeartHandshake, BrainCircuit, FlaskConical, Tent,
 } from "lucide-react";
-import { inventory } from "../data/mockData";
+import { useApi, api } from "../lib/api";
 import "./Landing.css";
 
 const features = [
@@ -36,11 +36,27 @@ const portals = [
   { key: "admin", icon: ShieldCheck, label: "Admin Portal", desc: "Manage stock, match donors, run cross-match tests, schedule camps, and review AI forecasts.", path: "/admin", color: "var(--crimson-dark)" },
 ];
 
-const totalUnits = inventory.reduce((s, r) => s + r.units, 0);
-const nearExpiry = inventory.reduce((s, r) => s + r.nearExpiryUnits, 0);
-const maxUnits = Math.max(...inventory.map((r) => r.units));
-
 function InventoryPreview() {
+  const { data: inventory } = useApi(api.getInventory);
+
+  if (!inventory || inventory.length === 0) {
+    return (
+      <div className="land-preview">
+        <div className="land-preview__head">
+          <span className="land-preview__live"><span className="land-preview__dot" />Live inventory</span>
+          <span className="land-preview__bank">City Central Blood Bank</span>
+        </div>
+        <div className="land-preview__bars">
+          <p className="empty-state" style={{ padding: "1.5rem" }}>Inventory is loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalUnits = inventory.reduce((s, r) => s + r.units, 0);
+  const nearExpiry = inventory.reduce((s, r) => s + r.nearExpiryUnits, 0);
+  const maxUnits = Math.max(...inventory.map((r) => r.units));
+
   return (
     <div className="land-preview">
       <div className="land-preview__head">

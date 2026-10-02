@@ -1,11 +1,18 @@
 import { Droplets, CalendarDays, Award } from "lucide-react";
 import { PageHeader, Card, Badge, StatCard } from "../../components/UI";
-import { donationHistory } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 import "./Donor.css";
 
 export default function DonorHistory() {
+  const { data: donationHistory, error } = useApi(api.getDonorHistory);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load donation history.</p>;
+  if (!donationHistory) return <p className="empty-state">Loading donation history…</p>;
+
   const totalUnits = donationHistory.reduce((s, d) => s + d.units, 0);
-  const firstYear = Math.min(...donationHistory.map((d) => new Date(d.date).getFullYear()));
+  const firstYear = donationHistory.length
+    ? Math.min(...donationHistory.map((d) => new Date(d.date).getFullYear()))
+    : "—";
   const sorted = [...donationHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (

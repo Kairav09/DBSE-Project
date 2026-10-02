@@ -4,7 +4,8 @@ import {
   User, BedDouble, Clock,
 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge } from "../../components/UI";
-import { hospitalRequests, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 import "./Hospital.css";
 
 const STEPS = ["Pending", "Matching", "Matched", "Fulfilled"];
@@ -53,6 +54,12 @@ function RequestTimelineItem({ req, last }) {
 }
 
 export default function HospitalOverview() {
+  const { data: hospitalRequests, error } = useApi(api.getMyRequests);
+  const { data: me } = useApi(api.getMe);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load your requests.</p>;
+  if (!hospitalRequests) return <p className="empty-state">Loading your requests…</p>;
+
   const active = hospitalRequests.filter((r) => r.status !== "Fulfilled");
   const critical = active.filter((r) => r.urgency === "Critical");
   const sorted = [...hospitalRequests].sort(
@@ -61,7 +68,7 @@ export default function HospitalOverview() {
 
   return (
     <div>
-      <PageHeader title="Yashoda Hospital, Somajiguda" subtitle="Blood request command center" />
+      <PageHeader title={me?.profile ? `${me.profile.name}, ${me.profile.location}` : "Hospital"} subtitle="Blood request command center" />
 
       <div className="stat-grid">
         <StatCard label="Active requests" value={active.length} icon={ClipboardList} />

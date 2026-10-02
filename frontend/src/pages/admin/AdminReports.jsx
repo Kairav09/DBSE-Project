@@ -3,11 +3,16 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { PageHeader, Card, StatCard } from "../../components/UI";
-import { reportStats } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 
 const PIE_COLORS = ["#a3172e", "#1e3a5f", "#92400e", "#14532d", "#6d28d9", "#0e7490", "#be185d", "#4338ca"];
 
 export default function AdminReports() {
+  const { data: reportStats, error } = useApi(api.getReports);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load reports.</p>;
+  if (!reportStats) return <p className="empty-state">Loading reports…</p>;
+
   const totalCollected = reportStats.monthlyCollections.reduce((s, m) => s + m.collected, 0);
   const totalDistributed = reportStats.monthlyCollections.reduce((s, m) => s + m.distributed, 0);
 

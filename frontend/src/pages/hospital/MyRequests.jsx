@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { hospitalRequests, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 
 const STAGES = ["Pending", "Matching", "Matched", "Fulfilled"];
 
 export default function MyRequests() {
+  const { data: hospitalRequests, error } = useApi(api.getMyRequests);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load your requests.</p>;
+  if (!hospitalRequests) return <p className="empty-state">Loading your requests…</p>;
+
   return (
     <div>
       <PageHeader title="My requests" subtitle="Track each request from submission to fulfilment." />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Droplets, Hospital, ShieldCheck, Cross, ArrowRight, ArrowLeft } from "lucide-react";
+import { login } from "../lib/auth";
 import "./Auth.css";
 
 const VALID_ROLES = ["donor", "hospital", "admin"];
@@ -10,6 +11,8 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const requestedRole = searchParams.get("role");
   const [role, setRole] = useState(VALID_ROLES.includes(requestedRole) ? requestedRole : "donor");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const idField = {
     donor: { label: "Username or email address", placeholder: "Username or you@example.com" },
@@ -17,19 +20,23 @@ export default function Login() {
     admin: { label: "Username or email address", placeholder: "Username or you@example.com" },
   }[role];
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+    setBusy(true);
     const formData = new FormData(e.target);
-    const username = formData.get("username") || "User";
-    
-    localStorage.setItem("userName", username);
-    
-    const existingSub = localStorage.getItem("userSub");
-    if (!existingSub) {
-      localStorage.setItem("userSub", role === "donor" ? "O+ · Hyderabad" : role === "hospital" ? "Somajiguda" : "Blood Bank");
+    try {
+      const user = await login({
+        identifier: formData.get("username"),
+        password: formData.get("password"),
+        role,
+      });
+      navigate(`/${user.role}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
     }
-    
-    navigate(`/${role}`);
   }
 
   return (
@@ -74,6 +81,11 @@ export default function Login() {
           <p className="auth-form__subtitle">Sign in to your account to continue.</p>
 
           <form onSubmit={handleSubmit} className="auth-form">
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
             <div className="auth-field">
               <label>{idField.label}</label>
               <input type="text" name="username" placeholder={idField.placeholder} required />
@@ -81,7 +93,7 @@ export default function Login() {
 
             <div className="auth-field">
               <label>Password</label>
-              <input type="password" placeholder="••••••••" required />
+              <input type="password" name="password" placeholder="••••••••" required />
             </div>
 
             <div className="auth-field">
@@ -105,7 +117,9 @@ export default function Login() {
               </div>
             </div>
 
-            <button className="auth-submit" type="submit">Sign in</button>
+            <button className="auth-submit" type="submit" disabled={busy}>
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
           </form>
 
           <div className="auth-form__footer">

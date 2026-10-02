@@ -2,11 +2,10 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, Droplets, TriangleAlert, Timer, ArrowRight, PackageCheck } from "lucide-react";
 import { PageHeader, Badge } from "../../components/UI";
-import { inventory } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 import "./Hospital.css";
 
 const LOW_THRESHOLD = 10;
-const maxUnits = Math.max(...inventory.map((r) => r.units));
 
 function stockStatus(units) {
   if (units < LOW_THRESHOLD) return "Critical";
@@ -17,8 +16,10 @@ function stockStatus(units) {
 export default function InventorySearch() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
+  const { data: inventory, error } = useApi(api.getInventory);
 
   const rows = useMemo(() => {
+    if (!inventory) return [];
     const q = query.trim().toLowerCase().replace(/\s+/g, "");
     return inventory.filter((r) => {
       if (q && !r.bloodGroup.toLowerCase().replace(/\s+/g, "").includes(q)) return false;
@@ -26,7 +27,12 @@ export default function InventorySearch() {
       if (filter === "expiry" && r.nearExpiryUnits === 0) return false;
       return true;
     });
-  }, [query, filter]);
+  }, [query, filter, inventory]);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load inventory.</p>;
+  if (!inventory) return <p className="empty-state">Loading inventory…</p>;
+
+  const maxUnits = Math.max(...inventory.map((r) => r.units));
 
   const totalUnits = inventory.reduce((s, r) => s + r.units, 0);
   const lowCount = inventory.filter((r) => r.units < LOW_THRESHOLD).length;

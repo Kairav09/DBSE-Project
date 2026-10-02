@@ -1,10 +1,39 @@
 import { useState } from "react";
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { donationCamps } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 
 export default function AdminCamps() {
   const [showForm, setShowForm] = useState(false);
-  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data: donationCamps, error, reload } = useApi(api.getCamps);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load camps.</p>;
+  if (!donationCamps) return <p className="empty-state">Loading camps…</p>;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setFormError("");
+    setBusy(true);
+    const fd = new FormData(e.target);
+    try {
+      await api.createCamp({
+        name: fd.get("name"),
+        organizer: fd.get("organizer"),
+        location: fd.get("location"),
+        date: fd.get("campDate"),
+        time: fd.get("timeSlot") || undefined,
+        expectedDonors: fd.get("expectedDonors") ? Number(fd.get("expectedDonors")) : undefined,
+        contactPhone: fd.get("contactPhone") || undefined,
+      });
+      setShowForm(false);
+      reload();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const upcoming = donationCamps.filter((c) => c.status === "Upcoming");
   const completed = donationCamps.filter((c) => c.status === "Completed");
@@ -15,7 +44,7 @@ export default function AdminCamps() {
         title="Camp management"
         subtitle="Schedule and track blood donation camps across the city."
         action={
-          <button className="btn" onClick={() => { setShowForm(!showForm); setFormSubmitted(false); }}>
+          <button className="btn" onClick={() => { setShowForm(!showForm); setFormError(""); }}>
             {showForm ? "Cancel" : "+ Schedule new camp"}
           </button>
         }
@@ -23,46 +52,46 @@ export default function AdminCamps() {
 
       {showForm && (
         <Card title="Schedule a new camp">
-          {formSubmitted && (
-            <div style={{ background: "var(--green-tint)", color: "var(--green)", padding: "0.7rem 1rem", borderRadius: 6, fontSize: "0.88rem", marginBottom: "1rem" }}>
-              Camp scheduled successfully! Donors in the area will be notified.
+          {formError && (
+            <div style={{ background: "var(--crimson-tint)", color: "var(--crimson-deep)", padding: "0.7rem 1rem", borderRadius: 6, fontSize: "0.88rem", marginBottom: "1rem" }}>
+              {formError}
             </div>
           )}
           <form
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", maxWidth: 600 }}
-            onSubmit={(e) => { e.preventDefault(); setFormSubmitted(true); }}
+            onSubmit={handleSubmit}
           >
             <div>
               <label>Camp name</label>
-              <input placeholder="e.g. Rotary Blood Drive" required />
+              <input name="name" placeholder="e.g. Rotary Blood Drive" required />
             </div>
             <div>
               <label>Organizer</label>
-              <input placeholder="e.g. Rotary Club Hyderabad" required />
+              <input name="organizer" placeholder="e.g. Rotary Club Hyderabad" required />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
               <label>Location / Venue</label>
-              <input placeholder="Full address" required />
+              <input name="location" placeholder="Full address" required />
             </div>
             <div>
               <label>Date</label>
-              <input type="date" required />
+              <input type="date" name="campDate" required />
             </div>
             <div>
               <label>Time slot</label>
-              <input placeholder="e.g. 09:00 – 17:00" required />
+              <input name="timeSlot" placeholder="e.g. 09:00 – 17:00" required />
             </div>
             <div>
               <label>Expected donors</label>
-              <input type="number" min="1" placeholder="e.g. 200" />
+              <input type="number" name="expectedDonors" min="1" placeholder="e.g. 200" />
             </div>
             <div>
               <label>Contact phone</label>
-              <input type="tel" placeholder="+91 98765 43210" />
+              <input type="tel" name="contactPhone" placeholder="+91 98765 43210" />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <button className="btn" type="submit" disabled={formSubmitted}>
-                {formSubmitted ? "Scheduled!" : "Schedule camp"}
+              <button className="btn" type="submit" disabled={busy}>
+                {busy ? "Scheduling…" : "Schedule camp"}
               </button>
             </div>
           </form>

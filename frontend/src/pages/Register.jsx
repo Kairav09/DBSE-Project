@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Droplets, Hospital, ShieldCheck, Cross, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { bloodGroups } from "../data/mockData";
+import { useApi, api } from "../lib/api";
+import { BLOOD_GROUPS_FALLBACK } from "../lib/utils";
+import { register } from "../lib/auth";
 import "./Auth.css";
 
 const PANEL_CONTENT = {
@@ -38,21 +40,37 @@ export default function Register() {
   const navigate = useNavigate();
   const [role, setRole] = useState("donor");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data: groupData } = useApi(api.getBloodGroups);
+  const bloodGroups = groupData || BLOOD_GROUPS_FALLBACK;
 
   const panel = PANEL_CONTENT[role];
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+    setBusy(true);
     const formData = new FormData(e.target);
-    const fullName = formData.get("fullName") || formData.get("hospitalName") || "User";
-    const bg = formData.get("bloodGroup") || "";
-    const city = formData.get("city") || "City";
-    
-    localStorage.setItem("userName", fullName);
-    localStorage.setItem("userSub", role === "donor" ? `${bg} · ${city}` : role === "hospital" ? city : "Blood Bank");
-
-    setSubmitted(true);
-    setTimeout(() => navigate(`/login?role=${role}`), 1500);
+    try {
+      await register({
+        role,
+        name: formData.get("fullName") || formData.get("hospitalName") || "User",
+        email: formData.get("email"),
+        password: formData.get("password"),
+        bloodGroup: formData.get("bloodGroup") || undefined,
+        city: formData.get("city") || undefined,
+        phone: formData.get("phone") || undefined,
+        dateOfBirth: formData.get("dateOfBirth") || undefined,
+        hospitalName: formData.get("hospitalName") || undefined,
+        location: formData.get("city") || undefined,
+      });
+      setSubmitted(true);
+      setTimeout(() => navigate(`/login?role=${role}`), 1500);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
   }
 
   return (
@@ -103,6 +121,11 @@ export default function Register() {
           )}
 
           <form onSubmit={handleSubmit} className="auth-form">
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
             <div className="auth-field">
               <label>Register as</label>
               <div className="auth-role-tabs">
@@ -128,12 +151,12 @@ export default function Register() {
               {/* Common Fields */}
               <div className="auth-field">
                 <label>Username or email address</label>
-                <input type="text" placeholder="Username or you@example.com" required />
+                <input type="text" name="email" placeholder="Username or you@example.com" required />
               </div>
 
               <div className="auth-field">
                 <label>Password</label>
-                <input type="password" placeholder="Min 8 characters" required minLength={8} />
+                <input type="password" name="password" placeholder="Min 8 characters" required minLength={8} />
               </div>
 
               {/* Donor Specific Fields */}
@@ -152,7 +175,7 @@ export default function Register() {
                   </div>
                   <div className="auth-field">
                     <label>Date of birth</label>
-                    <input type="date" required />
+                    <input type="date" name="dateOfBirth" required />
                   </div>
                 </>
               )}
@@ -188,7 +211,7 @@ export default function Register() {
               {/* Shared Contact/Location Fields */}
               <div className="auth-field">
                 <label>Contact number</label>
-                <input type="tel" placeholder="+91 98765 43210" required />
+                <input type="tel" name="phone" placeholder="+91 98765 43210" required />
               </div>
 
               <div className="auth-field">
@@ -206,8 +229,8 @@ export default function Register() {
               )}
             </div>
 
-            <button className="auth-submit" type="submit" disabled={submitted} style={{ marginTop: "1rem" }}>
-              {submitted ? "Creating account…" : `Create ${role} account`}
+            <button className="auth-submit" type="submit" disabled={submitted || busy} style={{ marginTop: "1rem" }}>
+              {submitted ? "Creating account…" : busy ? "Creating…" : `Create ${role} account`}
             </button>
           </form>
 

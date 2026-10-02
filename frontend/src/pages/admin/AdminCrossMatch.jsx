@@ -1,7 +1,13 @@
 import { PageHeader, Card, Badge } from "../../components/UI";
-import { crossMatchRecords, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
 
 export default function AdminCrossMatch() {
+  const { data: crossMatchRecords, error } = useApi(api.getCrossmatch);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load cross-match records.</p>;
+  if (!crossMatchRecords) return <p className="empty-state">Loading cross-match records…</p>;
+
   return (
     <div>
       <PageHeader

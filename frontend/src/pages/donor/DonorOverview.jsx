@@ -5,7 +5,9 @@ import {
   MapPin, Target, ArrowRight, Building2,
 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge } from "../../components/UI";
-import { currentDonor, donationHistory, matchAlertsForDonor, timeAgo } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
+import { timeAgo } from "../../lib/utils";
+import { getUser } from "../../lib/auth";
 import "./Donor.css";
 
 const DONATION_GAP_DAYS = 90;
@@ -19,22 +21,33 @@ const fmtDate = (iso) =>
 
 export default function DonorOverview() {
   const [responded, setResponded] = useState([]);
-  const userName = localStorage.getItem("userName") || currentDonor.name;
+  const { data: donor, error: donorError } = useApi(api.getDonorMe);
+  const { data: donationHistory } = useApi(api.getDonorHistory);
+  const { data: matchAlerts } = useApi(api.getMatchAlerts);
+
+  if (donorError) return <p className="empty-state">Couldn&apos;t load your dashboard.</p>;
+  if (!donor || !donationHistory || !matchAlerts) {
+    return <p className="empty-state">Loading your dashboard…</p>;
+  }
+
+  const userName = getUser()?.name || donor.name;
   const firstName = userName.split(" ")[0];
 
   // ── Eligibility math ──
-  const lastDonation = new Date(currentDonor.lastDonation);
-  const nextEligible = new Date(lastDonation.getTime() + DONATION_GAP_DAYS * dayMs);
+  const lastDonation = donor.lastDonation ? new Date(donor.lastDonation) : null;
+  const nextEligible = lastDonation
+    ? new Date(lastDonation.getTime() + DONATION_GAP_DAYS * dayMs)
+    : new Date();
   const today = new Date();
   const daysLeft = daysBetween(today, nextEligible);
   const isEligible = daysLeft <= 0;
   const cycleDone = Math.min(DONATION_GAP_DAYS, Math.max(0, DONATION_GAP_DAYS - Math.max(0, daysLeft)));
   const cyclePct = Math.round((cycleDone / DONATION_GAP_DAYS) * 100);
-  const daysSinceDonation = daysBetween(lastDonation, today);
+  const daysSinceDonation = lastDonation ? daysBetween(lastDonation, today) : null;
 
   // ── Impact math ──
-  const livesTouched = currentDonor.totalDonations * LIVES_PER_DONATION;
-  const milestonePct = Math.min(100, Math.round((currentDonor.totalDonations / NEXT_MILESTONE) * 100));
+  const livesTouched = donor.totalDonations * LIVES_PER_DONATION;
+  const milestonePct = Math.min(100, Math.round((donor.totalDonations / NEXT_MILESTONE) * 100));
 
   // ── Rhythm math ──
   const sorted = [...donationHistory].map((d) => new Date(d.date)).sort((a, b) => a - b);
@@ -45,7 +58,7 @@ export default function DonorOverview() {
     <div>
       <PageHeader
         title={`Welcome back, ${firstName}`}
-        subtitle={`Donor ID ${currentDonor.id} · ${currentDonor.city}`}
+        subtitle={`Donor ID ${donor.id} · ${donor.city || ""}`}
       />
 
       {/* ── Impact banner ── */}
@@ -54,12 +67,12 @@ export default function DonorOverview() {
           <span className="donor-impact__label">Your impact so far</span>
           <div className="donor-impact__number">{livesTouched}</div>
           <p className="donor-impact__sub">
-            lives potentially saved across {currentDonor.totalDonations} donations
+            lives potentially saved across {donor.totalDonations} donations
           </p>
           <div className="donor-impact__milestone">
             <div className="donor-impact__milestone-top">
               <span className="meta"><Target size={14} /> Next milestone: {NEXT_MILESTONE} donations</span>
-              <span>{currentDonor.totalDonations}/{NEXT_MILESTONE}</span>
+              <span>{donor.totalDonations}/{NEXT_MILESTONE}</span>
             </div>
             <div className="donor-impact__track">
               <div className="donor-impact__fill" style={{ width: `${milestonePct}%` }} />
@@ -74,8 +87,8 @@ export default function DonorOverview() {
 
       {/* ── Stat cards ── */}
       <div className="stat-grid">
-        <StatCard label="Blood group" value={currentDonor.bloodGroup} icon={Droplets} tone="critical" />
-        <StatCard label="Total donations" value={currentDonor.totalDonations} icon={HeartHandshake} />
+        <StatCard label="Blood group" value={donor.bloodGroup} icon={Droplets} tone="critical" />
+        <StatCard label="Total donations" value={donor.totalDonations} icon={HeartHandshake} />
         <StatCard
           label="Avg. gap between donations"
           value={avgGap ? `${avgGap} days` : "—"}
@@ -91,9 +104,13 @@ export default function DonorOverview() {
             <div className="elig elig--ok">
               <span className="elig__icon"><CheckCircle2 size={22} strokeWidth={2.2} /></span>
               <div>
-                <div className="elig__title">You're eligible to donate</div>
+                <div className="elig__title">You&apos;re eligible to donate</div>
                 <p className="elig__sub">
-                  Last donation {fmtDate(currentDonor.lastDonation)} · {daysSinceDonation} days ago
+                  {lastDonation ? (
+                    <>Last donation {fmtDate(donor.lastDonation)} · {daysSinceDonation} days ago</>
+                  ) : (
+                    <>No donations recorded yet — you can donate anytime.</>
+                  )}
                 </p>
               </div>
             </div>
@@ -101,14 +118,14 @@ export default function DonorOverview() {
             <div className="elig elig--wait">
               <span className="elig__icon"><Clock size={22} strokeWidth={2.2} /></span>
               <div>
-                <div className="elig__title">{daysLeft} day{daysLeft === 1 ? "" : "s"} until you're eligible</div>
+                <div className="elig__title">{daysLeft} day{daysLeft === 1 ? "" : "s"} until you&apos;re eligible</div>
                 <p className="elig__sub">Whole-blood donors wait {DONATION_GAP_DAYS} days between donations</p>
               </div>
             </div>
           )}
           <div className="elig__bar">
             <div className="elig__bar-top">
-              <span>{fmtDate(currentDonor.lastDonation)}</span>
+              <span>{lastDonation ? fmtDate(donor.lastDonation) : "—"}</span>
               <span>{isEligible ? "Eligible now" : fmtDate(nextEligible.toISOString())}</span>
             </div>
             <div className="elig__track">
@@ -125,14 +142,14 @@ export default function DonorOverview() {
 
         {/* ── Matching requests ── */}
         <Card
-          title={`Requests matching ${currentDonor.bloodGroup}`}
+          title={`Requests matching ${donor.bloodGroup}`}
           action={<Link to="/donor/requests" className="card__link">View all<ArrowRight size={14} /></Link>}
         >
-          {matchAlertsForDonor.length === 0 ? (
+          {matchAlerts.length === 0 ? (
             <div className="empty-state">No active requests match your blood group right now.</div>
           ) : (
             <div className="req-list">
-              {matchAlertsForDonor.map((m) => (
+              {matchAlerts.map((m) => (
                 <div key={m.id} className="req-row">
                   <div className="req-row__main">
                     <div className="req-row__top">

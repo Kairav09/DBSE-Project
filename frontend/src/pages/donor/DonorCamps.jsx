@@ -1,8 +1,13 @@
 import { MapPin, CalendarDays, Clock } from "lucide-react";
 import { PageHeader, Card } from "../../components/UI";
-import { donationCamps } from "../../data/mockData";
+import { useApi, api } from "../../lib/api";
 
 export default function DonorCamps() {
+  const { data: donationCamps, error } = useApi(api.getCamps);
+
+  if (error) return <p className="empty-state">Couldn&apos;t load camps.</p>;
+  if (!donationCamps) return <p className="empty-state">Loading camps…</p>;
+
   const upcoming = donationCamps.filter((c) => c.status === "Upcoming");
   const past = donationCamps.filter((c) => c.status === "Completed");
 

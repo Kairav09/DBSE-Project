@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import "./UI.css";
 
 export function PageHeader({ title, subtitle, action }) {
@@ -59,4 +60,44 @@ export function Card({ title, action, children, className }) {
 
 export function EmptyState({ text }) {
   return <div className="empty-state">{text}</div>;
+}
+
+// ── Toasts ────────────────────────────────────────────────────────────────
+// toast("Donor notified") from anywhere; <ToastHost/> renders them once
+// (mounted in DashboardShell). Auto-dismisses after 4 seconds.
+const toastListeners = new Set();
+let toastSeq = 0;
+
+export function toast(message, sub) {
+  const item = { id: ++toastSeq, message, sub };
+  toastListeners.forEach((fn) => fn(item));
+}
+
+export function ToastHost() {
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    const push = (item) => {
+      setItems((list) => [...list, item]);
+      setTimeout(() => {
+        setItems((list) => list.filter((t) => t.id !== item.id));
+      }, 4000);
+    };
+    toastListeners.add(push);
+    return () => {
+      toastListeners.delete(push);
+    };
+  }, []);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="toast-host" role="status" aria-live="polite">
+      {items.map((t) => (
+        <div key={t.id} className="toast">
+          <div className="toast__msg">{t.message}</div>
+          {t.sub && <div className="toast__sub">{t.sub}</div>}
+        </div>
+      ))}
+    </div>
+  );
 }
