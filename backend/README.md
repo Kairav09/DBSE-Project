@@ -1,6 +1,6 @@
 # RaktaSetu backend — Express + MySQL
 
-## Setup (on your laptop)
+## Setup
 
 1. **Database** — open `schema.sql` in MySQL Workbench and run it.
    Creates the `raktasetu` database: 9 tables + the `v_inventory` view.
